@@ -3,7 +3,8 @@ import { respondWithJSON } from "./json";
 import { getVideo, updateVideo } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
-import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";	
+import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
+import { getAssetDiskPath, getAssetURL, mediaTypeToExt } from "./assets";
 
 export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 	const { videoId } = req.params as { videoId?: string };
@@ -40,12 +41,6 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 		throw new BadRequestError("Missing Content-Type for thumbnail");
 	}
 
-	// 6. Read all the image data into a ArrayBuffer using the files's arrayBuffer() method
-	const fileData = await file.arrayBuffer();
-	if (!fileData) {
-		throw new Error("Error reading file data");
-	}
-
 	// 7. Get the video's metadata from the SQLite database, use the getVideo method available in db/videos
 	const video = getVideo(cfg.db, videoId);
 	if (!video) {
@@ -57,10 +52,18 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 		throw new UserForbiddenError("Not authorized to update this video");
 	}
 
-	const base64Encoded = Buffer.from(fileData).toString("base64");
-	const base64DataURL = `data:${mediaType};base64,${base64Encoded}`;
+	// a. use the mediaType determine the file extension.
+	const ext = mediaTypeToExt(mediaType);
+	const filename = `${videoId}${ext}`;
 
-	video.thumbnailURL = base64DataURL;
+	// b. Use the videoID to create a unique file path.
+	const assetDiskPath = getAssetDiskPath(cfg, filename);
+	// c. Use Bun.write to create the new file
+	await Bun.write(assetDiskPath, file);
+
+	// Update the video thumbnail_url
+	const urlPath = getAssetURL(cfg, filename);
+	video.thumbnailURL = urlPath;
 
 	// 11. update the record in the database by using the updateVideo function available in db/videos.
 	updateVideo(cfg.db, video);
