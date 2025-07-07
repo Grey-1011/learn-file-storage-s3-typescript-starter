@@ -4,7 +4,7 @@ import { getVideo, updateVideo } from "../db/videos";
 import type { ApiConfig } from "../config";
 import type { BunRequest } from "bun";
 import { BadRequestError, NotFoundError, UserForbiddenError } from "./errors";
-import { getAssetDiskPath, getAssetURL, mediaTypeToExt } from "./assets";
+import { getAssetDiskPath, getAssetPath, getAssetURL, mediaTypeToExt } from "./assets";
 
 export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 	const { videoId } = req.params as { videoId?: string };
@@ -52,17 +52,14 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 		throw new UserForbiddenError("Not authorized to update this video");
 	}
 
-	// a. use the mediaType determine the file extension.
-	const ext = mediaTypeToExt(mediaType);
-	const filename = `${videoId}${ext}`;
-
+	const assetPath = getAssetPath(mediaType)
 	// b. Use the videoID to create a unique file path.
-	const assetDiskPath = getAssetDiskPath(cfg, filename);
+	const assetDiskPath = getAssetDiskPath(cfg, assetPath);
 	// c. Use Bun.write to create the new file
 	await Bun.write(assetDiskPath, file);
 
 	// Update the video thumbnail_url
-	const urlPath = getAssetURL(cfg, filename);
+	const urlPath = getAssetURL(cfg, assetPath);
 	video.thumbnailURL = urlPath;
 
 	// 11. update the record in the database by using the updateVideo function available in db/videos.
