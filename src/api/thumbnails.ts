@@ -37,8 +37,8 @@ export async function handlerUploadThumbnail(cfg: ApiConfig, req: BunRequest) {
 
 	// 5. Get the media type from the file's `type` property
 	const mediaType = file.type;
-	if (!mediaType) {
-		throw new BadRequestError("Missing Content-Type for thumbnail");
+	if (mediaType !== "image/jpeg" && mediaType !== "image/png") {
+		throw new BadRequestError("Invalid file type. Only JPEG or PNG allowed.");
 	}
 
 	// 7. Get the video's metadata from the SQLite database, use the getVideo method available in db/videos
